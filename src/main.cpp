@@ -6,13 +6,14 @@
 #include "RF24.h"
 
 float conc(int a, float b);
+float ph_read();
 
 RF24 tf(7,8);
 OneWire sense(A0);
 DallasTemperature DS18B20(&sense);
 uint8_t addresses[][6] = {"Node1", "Node2"};
-float data;
-float sent;
+float data1, data2;
+float sent1, sent2;
 
 void setup() {
   Serial.begin(115200);
@@ -29,35 +30,52 @@ void setup() {
 
 unsigned long prevMillis;
 unsigned long currentMillis ;
+
 void loop() {
   DS18B20.requestTemperatures();
-  data = DS18B20.getTempCByIndex(0);
-  sent = conc(2,data);
+  data1 = DS18B20.getTempCByIndex(0);
+  data2 = ph_read();
+  sent1 = conc(2,data1);
+  sent2 = conc(2,data2);
   if (millis() - prevMillis >= 500){
     prevMillis = millis();
-    unsigned long start_timer = micros(); 
-    bool result = tf.write(&sent, sizeof(sent));
-    unsigned long end_timer = micros();
-    Serial.println(data);
-    if (result){
-      Serial.print(F("Transmission successful! "));          // payload was delivered
-      Serial.print(F("Time to transmit = "));
-      Serial.print(end_timer - start_timer);                 // print the timer result
-      Serial.print(F(" us. Sent: \n"));                               // print payload sent
-      Serial.println(sent);
-      sent = 0;
+    bool result1 = tf.write(&sent1, sizeof(sent1));
+    bool result2 = tf.write(&sent2, sizeof(sent2));
+    Serial.println(data1);
+    Serial.println(data2);
+    if (result1){
+      Serial.print(F("Transmission (temp) successful! "));          // payload was delivered
+      Serial.print(F("Sent: \n"));                               // print payload sent
+      Serial.println(sent1);
+      sent1 = 0;
     }
-    else {
-      Serial.println(F("Transmission failed or timed out")); // payload was not delivered
+    if (result2){
+      Serial.print(F("Transmission (pH) successful! "));          // payload was delivered
+      Serial.print(F("Sent: \n"));                               // print payload sent
+      Serial.println(sent2);
+      sent2 = 0;
+    }
+    if (!result1 || !result2){
+      Serial.println("Transmission Failed");
     }
   }  
 }
 
 float conc(int a, float b){
   String sub1 = String(a);
-  String sub2 = String(b,2);
+  String sub2 = String(b);
 
   String all = sub1 + sub2;
   float val = all.toFloat();
   return val;
+}
+
+float ph_read(){
+  float ph7 = 2.470;
+  float ph4 = 3.020;
+  int raw = analogRead(A1);
+  float volt = raw * 5/1024-0.1;
+  float step = (ph4 - ph7) / 3;
+  float value = 7.0 + ((ph7 - volt)/step);
+  return value;
 }
